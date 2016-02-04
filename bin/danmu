@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require 'danmu'
+
+Danmu::DanmuShow.start( ARGV )
