@@ -10,8 +10,7 @@ module Danmu
     DANMU
     option :statistic
     def douyu( url )
-      client = DouyuClient.new( url )
-      client.start
+      DouyuClient.new( url )
     end
 
   end

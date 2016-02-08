@@ -27,7 +27,7 @@ class DouyuClient
         auth_server_ip = auth_servers[0]["ip"]
         auth_server_port = auth_servers[0]["port"]
         client = DanmuClient.new(room.room_id,auth_server_ip,auth_server_port)
-        client.get_danmu
+        client.start
       end
   end
 

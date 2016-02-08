@@ -5,6 +5,10 @@ require 'logger'
 require_relative '../models/message'
 require_relative '../misc/logging'
 
+# INFO 代表的是一些琐碎的操作
+# DEBUG 
+
+
 class DanmuClient
   include Logging
 
@@ -24,47 +28,59 @@ class DanmuClient
   end
 
   def do_main
-    logger.info("即将登陆")
+    logger.info("准备登陆认证")
     do_login
-    logger.info("即将获取弹幕")
-    get_danmu
+    logger.info("准备获取弹幕")
+    loop { get_danmu  }
   end
 
 
   def do_login
     @danmu_auth_socket = TCPSocket.new @auth_dst_ip,@auth_dst_port
     @danmu_socket = TCPSocket.new DANMU_SERVER,DANMU_PORT
-    logger.info("初始化Socket 成功 #{DANMU_SERVER}")
-    logger.info("danmu auth socket开始认证")
+    logger.info("初始化DAMMU_SOCKET和DANMU_AUTH_SOCKET")
     msg =  "type@=loginreq/username@=/ct@=0/password@=/roomid@=" + @room_id.to_s + "/devid@="+@dev_id+"/rt@="+timestamp+"/vk@=14334cee55771d6a71ab95c5938fd2bd/ver@=20150929/"
     send_message(:login_auth,@danmu_auth_socket,msg)
     str = @danmu_auth_socket.recv(4000)
-    puts "<>1<><"+str
+    # puts "<>1<><"+str
     @username= str[/\/username@=(.+)\/nickname/,1]
-    puts "----" + @username
+    # puts "----" + @username
     str = @danmu_auth_socket.recv(4000)
-    puts "<>2<><"+str
+    # puts "<>2<><"+str
     @gid = str[/\/gid@=(\d+)\//,1]
-    puts @gid + "----"
+    # puts @gid + "----"
     send_message(:qrl,@danmu_auth_socket,"")
     str = @danmu_auth_socket.recv(4000)
-    puts "<>3<><"+str
+    # puts "<>3<><"+str
     str = @danmu_auth_socket.recv(4000)
-    puts "<>4<><"+str
+    # puts "<>4<><"+str
     send_message(:keeplive,@danmu_auth_socket,"")
     str = @danmu_auth_socket.recv(4000)
-    puts "<>5<><"+str
+    # puts "<>5<><"+str
     data = "type@=loginreq/username@="+@username+"/password@=1234567890123456/roomid@=" + @room_id.to_s + "/"
     all_data = message(data)
     @danmu_socket.write all_data
-    puts all_data
+    #puts all_data
     str = @danmu_socket.recv(4000)
-    puts str
+    # puts str
     send_message(:join_group,@danmu_socket,"")
+    logger.info("初始化KeepAlive")
+    do_keeplive
   end
 
   def message(content)
     Message.new(content).to_s
+  end
+
+  def do_keeplive
+    Thread.new do
+      loop do
+        #puts "--> KeepAlive"
+        send_message(:keeplive,@danmu_auth_socket,"")
+        sleep 40
+        @danmu_socket.write message("type@=keeplive/tick@=" + timestamp + "/")
+      end
+    end
   end
 
   def send_keeplive_msg
@@ -110,12 +126,46 @@ class DanmuClient
   end
 
   def get_danmu
-    danmu_data = @danmu_socket.recv(4000)
+    danmu_data = @danmu_socket.recv(4000).force_encoding("UTF-8")
+    if danmu_data.include? "type@=error"
+      puts "弹幕认证超时"
+      return
+    end
+    #puts danmu_data
     type = danmu_data[danmu_data.index("type@=")..-3]
-    puts type.gsub('sui','').gsub('@S','/').gsub('@A=',':').gsub('@=',':').split('/')
-  end
+    str = type.gsub('@S','/').gsub('@A=',':').gsub('@=',':').encode("UTF-16be", :invalid=>:replace, :replace=>"?").encode('UTF-8')
+    type = str[/type:(.+?)\//,1]
+    #puts type
+    if type == "chatmessage"
+      type_zh = "弹幕"
+      sender_id = str[/\/sender:(.+?)\//,1]
+      nickname = str[/\/snick:(.+?)\//,1]
+      content =  str[/\/content:(.+?)\//,1]
+      strength = str[/\/strength:(.+?)\//,1]
+      level = str[/\/level:(\d+?)\//,1]
+      time  = Time.now.to_s
+      puts "|" + type_zh + "| " + align_left_str(nickname,20," ") + align_left_str("<Lv:#{level}>",8," ") + align_left_str("(#{sender_id})",13," ") + align_left_str("[#{strength}]",10," ") + "@ #{time}: #{content} "
+    elsif type == "userenter"
+      type_zh = "入房"
+      user_id = str[/\/:id:(.+?)\//,1]
+      nickname = str[/\/nick:(.+?)\//,1]
+      strength = str[/\/strength:(.+?)\//,1]
+      time  = Time.now.to_s
+      level = str[/\/level:(\d+)\//,1]
+      puts "|" + type_zh + "| " + align_left_str(nickname,20," ") + align_left_str("<Lv:#{level}>",8," ") + align_left_str("(#{user_id})",13," ") + align_left_str("[#{strength}]",10," ") + "@ #{time}"
+      #puts "|#{type_zh}| #{nickname}  <Lv:#{level}> (#{user_id}) [#{strength}] @ #{time}"
+    elsif type == "dgn"
+      type_zh = "未知"
+      level = str[/\/level:(\d+?)\//,1]
+      user_id = str[/\/sid:(.+?)\//,1]
+      nickname = str[/\/src_ncnm:(.+?)\//,1]
+      hits = str[/\/hits:(.+?)\//,1]
+      time  = Time.now.to_s
+      puts "|" + type_zh + "| " + align_left_str(nickname,20," ") + align_left_str("<Lv:#{level}>",8," ") + align_left_str("(#{user_id})",13," ") + align_left_str("[#{"Unknown"}]",10," ") + "@ #{time}: #{hits} hits "
+      #puts "|#{type_zh}| #{nickname}  <Lv:#{level}> (#{user_id}) @ #{time}"
+    end
 
-  
+  end
 
   def recv
     @danmu_socket.recv(4000)
@@ -137,6 +187,21 @@ class DanmuClient
     puts "= DANMU IP DST : #{@auth_dst_ip}:#{@auth_dst_port}\t="
     puts "= ROOM NAME : #{@room_id} \t"
     puts "========================================="
+  end
+
+  def align_left_str(raw_str,max_length,filled_chr)
+    my_length = 0
+    for i in 0...raw_str.size
+      if raw_str[i].ord > 127 || raw_str[i].ord <=0
+        my_length += 1
+      end
+      my_length += 1
+    end
+    if (max_length - my_length) > 0
+      raw_str + filled_chr * ( max_length - my_length )
+    else
+      raw_str
+    end
   end
 
 end
