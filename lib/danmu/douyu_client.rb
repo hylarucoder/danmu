@@ -22,11 +22,11 @@ class DouyuClient
       json2_format = valid_json?(json2)
       if json1_format && json2_format 
         room = RoomInfo.new(json1_format) 
-        ap room
+        #ap room
         auth_servers = valid_json?(URI::decode(json2_format['server_config']))
         auth_server_ip = auth_servers[0]["ip"]
         auth_server_port = auth_servers[0]["port"]
-        client = DanmuClient.new(room.room_id,auth_server_ip,auth_server_port)
+        client = DanmuClient.new(room,auth_server_ip,auth_server_port)
         client.start
       end
   end
