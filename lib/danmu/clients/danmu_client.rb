@@ -32,8 +32,14 @@ class DanmuClient
     logger.info("准备登陆认证")
     do_login
     print_room_status
-    logger.info("准备获取弹幕")
-    loop { get_danmu  }
+    if @live_stat == "离线"
+      logger.info("主播离线中,正在退出...")
+      exit
+    elsif
+      logger.info("主播在线中,准备获取弹幕...")
+      loop { get_danmu  }
+    end
+
   end
 
 

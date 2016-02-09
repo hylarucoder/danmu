@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.authors       = ["twocucao"]
   spec.email         = ["twocucao@gmail.com"]
 
-  spec.summary       = %q{斗鱼弹幕助手,终端下读取斗鱼的弹幕}
+  spec.summary       = %q{斗鱼弹幕助手,终端下的斗鱼的弹幕}
   spec.description   = %q{斗鱼弹幕助手}
   spec.homepage      = "https://github.com/twocucao/danmu"
   spec.license       = "MIT"
